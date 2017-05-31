@@ -1031,11 +1031,12 @@
  * Can be a flat damage or percent of the characters HP.
  * =====================================================
  * 
- * Flat Values - Just enter in the number of HP you want the characters to lose.
+ * Flat Values - Just enter in the number of HP you want the party to lose.
  * (Default 10)
  * 
- * HP Percentage - Enter the decimal number of current HP you want the 
- * characters to lose. (1% == .01)
+ * HP Percentage - Enter the percentage of current HP you want the party
+ * characters to lose. Accepts percentage or decimal.(1% == .01)
+ * Values of 100% and higher will be ignored and treated as 0.
  * 
  * When a Region ID is placed on a damage floor tile, the Region ID can be given
  * a specific value. 
@@ -1044,11 +1045,29 @@
 
 (function() {
     var parameters = PluginManager.parameters('AdjustDamageFloor');
+
     Game_Actor.prototype.executeFloorDamage = function() {
+
+        var paramType = 0; // 0 for flat damage, 1 for percent or decimal
         var regionId = $gameMap.regionId($gamePlayer._x, $gamePlayer._y);
-        var floorVal = regionId == 0 ? Number(parameters['Default Value']) : Number(parameters['Region ID ' + regionId]);
-        var damage = floorVal < 1 ? Math.floor(this.hp * floorVal) : floorVal;
+        var valString = regionId == 0 ? parameters['Default Value'] : parameters['Region ID ' + regionId];
+
+        if(valString.slice(-1) == '%' && parseFloat(valString) / 100.0 < 1 ) {
+            paramType = 1;
+            var floorVal = Number(parseFloat(valString) / 100.0);
+        } else if(valString.slice(-1) == '%' && parseFloat(valString) / 100.0 >= 1 ) {
+            var floorVal = 0;
+        } else if(valString.match( /^(\d+\.?\d*|\.\d+)$/ ) && parseFloat(valString) < 1 ) {
+            paramType = 1;
+            var floorVal = Number(parseFloat(valString));
+        } else if (valString.match( /^(\d+\.?\d*|\.\d+)$/ ) && parseFloat(valString) >= 1 ) {
+            var floorVal = 0;
+        }
+
+        var damage = paramType == 1 ? Math.floor(this.hp * floorVal) : floorVal;
+
         this.gainHp(-damage);
+
         if (damage > 0) {
             this.performMapDamage();
         }
